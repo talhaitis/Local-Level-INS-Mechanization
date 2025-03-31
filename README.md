@@ -9,9 +9,11 @@ This repository contains a local-level Inertial Navigation System (INS) mechaniz
 3. **Provide** well-documented C++ source code and thorough explanations.
 
 ## Data Description
-- **Data File**: `project_data.bin`
+-- **Data File**: `project_data.bin`
 - **Format**:
-- time [sec], gyro_x [rad/s], gyro_y [rad/s], gyro_z [rad/s], accel_x [m/s^2], accel_y [m/s^2], accel_z [m/s^2]
+  ```text
+  time [sec], gyro_x [rad/s], gyro_y [rad/s], gyro_z [rad/s],
+  accel_x [m/s^2], accel_y [m/s^2], accel_z [m/s^2]
 
 - **Axes Orientation**:
 - x-axis: pointing right (sideways)
@@ -43,9 +45,6 @@ This repository contains a local-level Inertial Navigation System (INS) mechaniz
 - Eccentricity squared (e²): 6.69438e-3  
 - Earth rotation rate (ωₑ): 7.292115147e-5 rad/s  
 - Gravity model parameters for latitude- and height-dependent computation
-
-## Repository Structure
-Local-Level-INS-Mechanization ├── README.md ├── src/ │ ├── main.cpp # Main entry point for INS mechanization │ ├── INSMechanization.cpp │ ├── INSMechanization.h │ └── ... ├── data/ │ └── project_data.bin # IMU data file ├── results/ │ └── ... # Generated plots or output └── docs/ └── ... # Additional documentation or derivations
 
 
 ## Building and Running
