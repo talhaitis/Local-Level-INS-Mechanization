@@ -48,7 +48,23 @@ This repository contains a local-level Inertial Navigation System (INS) mechaniz
 
 
 ## Building and Running
+
+### Dependencies
+- **C++17 Compiler**: Ensure your compiler supports C++17.
+- **CMake**: Version 3.10 or later is required.
+- **Eigen 3.4.0**: This project uses Eigen for matrix computations. Eigen is a header-only library and is bundled with the project in the `third_party/eigen-3.4.0` folder, so no additional installation is needed.
+
+### Steps to Build and Run
+
 1. **Clone the Repository**:
    ```bash
    git clone https://github.com/talhaitis/Local-Level-INS-Mechanization.git
    cd Local-Level-INS-Mechanization
+2. **Build the Project:**
+   ```mkdir build
+      cd build
+      cmake ..
+      make
+3. **Run the Executable**
+   ```bash
+      ./bin/ins_mechanization
