@@ -26,7 +26,8 @@ add_executable(ins_mechanization
     src/main.cpp
     src/INSMechanization.cpp
     src/IMUCalibration.cpp
-    src/Utilities.cpp 
+    src/Utilities.cpp
+    src/EarthModel.cpp
 )
 
 # 6. Include Directories (for your own headers, now in include/)

@@ -1,9 +1,9 @@
-// src/main.cpp
 #include <iostream>
 #include "INSMechanization.h"
 #include "IMUCalibration.h"
-#include "Constants.h"
-#include "Utilities.h"    // For conversion functions and CSV writing
+#include "Constants.h"       // For INIT_LAT_DEG, INIT_LONG_DEG, INIT_HEIGHT, DEG_TO_RAD, etc.
+#include "Utilities.h"       // For conversion functions and CSV writing
+#include "EarthModel.h"      // For computeNormalGravity, computeRadiusMeridian, computeRadiusPrimeVertical
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
@@ -13,10 +13,9 @@ int main()
     INSMechanization ins;
 
     // ---------------------------------------------------------------------------
-    // Set initial conditions from Constants.h (or define them here)
+    // Set initial conditions from Constants.h
     // ---------------------------------------------------------------------------
-    // Using constants defined in Constants.h, e.g. INIT_LAT_DEG, INIT_LONG_DEG, INIT_HEIGHT,
-    // Otherwise, you can define them here directly:
+    // Use constants defined in Constants.h (for example, INIT_LAT_DEG, INIT_LONG_DEG, INIT_HEIGHT)
     double initLat_deg = INIT_LAT_DEG;      // e.g., 51.07995352
     double initLong_deg = INIT_LONG_DEG;    // e.g., -114.13371127
     double initHeight = INIT_HEIGHT;        // e.g., 1118.502
@@ -59,27 +58,27 @@ int main()
     double gyroBias_degHour = 0.1; // Gyro bias in deg/hr
     double accelBias_microG = 3;   // Accelerometer bias in micro-g (µg)
 
-    // Convert gyro bias from deg/hr to rad/s using conversion function from Utilities.h
+    // Convert gyro bias: deg/hr -> rad/s using conversion function from Utilities.h
     double gyroBias_radPerSec = gyroBiasDegHrToRadSec(gyroBias_degHour);
-    // Convert accelerometer bias from µg to m/s² (assuming g ≈ 9.81 m/s²)
+    // Convert accelerometer bias: µg -> m/s² (assuming g ≈ 9.81 m/s²)
     double accelBias_mPerSec2 = accelBiasMicrogToMPerSec2(accelBias_microG);
 
-    std::cout<<"Bias after conversion: "<<accelBias_mPerSec2 <<std::endl;
+    std::cout << "Converted Accel Bias: " << accelBias_mPerSec2 << " m/s²" << std::endl;
 
-    // Set accelerometer calibration parameters
-    // Here, we assume nominal scale factors of 1 (i.e., no scaling error)
-    // and ideal alignment (non-orthogonality = 0)
+    // Set accelerometer calibration parameters:
     Eigen::Vector3d accelBias(accelBias_mPerSec2, accelBias_mPerSec2, accelBias_mPerSec2);
-    Eigen::Vector3d accelScale(1.0, 1.0, 1.0);
-    Eigen::Vector3d accelNonOrthogonality(0.0, 0.0, 0.0);
+    Eigen::Vector3d accelScale(1.0, 1.0, 1.0);  // Nominal scale factors (no error)
+    Eigen::Vector3d accelNonOrthogonality(0.0, 0.0, 0.0); // Assume ideal alignment
+
     calibration.setAccelBias(accelBias);
     calibration.setAccelScale(accelScale);
     calibration.setAccelNonOrthogonality(accelNonOrthogonality);
 
-    // Set gyroscope calibration parameters similarly
+    // Set gyroscope calibration parameters:
     Eigen::Vector3d gyroBias(gyroBias_radPerSec, gyroBias_radPerSec, gyroBias_radPerSec);
-    Eigen::Vector3d gyroScale(1.0, 1.0, 1.0);
-    Eigen::Vector3d gyroNonOrthogonality(0.0, 0.0, 0.0);
+    Eigen::Vector3d gyroScale(1.0, 1.0, 1.0);  // Nominal scale factors
+    Eigen::Vector3d gyroNonOrthogonality(0.0, 0.0, 0.0); // Assume ideal alignment
+
     calibration.setGyroBias(gyroBias);
     calibration.setGyroScale(gyroScale);
     calibration.setGyroNonOrthogonality(gyroNonOrthogonality);
@@ -124,9 +123,23 @@ int main()
     ins.run();
 
     // ---------------------------------------------------------------------------
-    // Print the results
+    // Print the INS results
     // ---------------------------------------------------------------------------
     ins.printResulst();
+
+    // ---------------------------------------------------------------------------
+    // Compute and print Earth model parameters
+    // ---------------------------------------------------------------------------
+    double normalGravity = computeNormalGravity(initLat_rad, initHeight);
+    double radiusMeridian = computeRadiusMeridian(initLat_rad);
+    double radiusPrimeVertical = computeRadiusPrimeVertical(initLat_rad);
+
+    std::cout << "Computed Normal Gravity at latitude " << initLat_rad 
+              << " and height " << initHeight << " is: " << normalGravity << " m/s²" << std::endl;
+    std::cout << "Radius of Curvature (Meridian) at latitude " << initLat_rad 
+              << " is: " << radiusMeridian << " m" << std::endl;
+    std::cout << "Radius of Curvature (Prime Vertical) at latitude " << initLat_rad 
+              << " is: " << radiusPrimeVertical << " m" << std::endl;
 
     return 0;
 }

@@ -34,8 +34,9 @@ Thumbs.db
 .idea/
 
 #------------------------------------------------------------------------------
-# If you have other third-party libs you do NOT want to track, ignore them here:
 # third_party/*
+
+third_party/eigen-3.4.0/
 
 # BUT we keep eigen-3.4.0 checked in, so do NOT ignore that folder:
 # !third_party/eigen-3.4.0
