@@ -25,12 +25,14 @@ target_include_directories(Eigen3 INTERFACE
 add_executable(ins_mechanization
     src/main.cpp
     src/INSMechanization.cpp
+    src/IMUCalibration.cpp
+    src/Utilities.cpp 
 )
 
-# 6. Include Directories (for your own headers)
+# 6. Include Directories (for your own headers, now in include/)
 target_include_directories(ins_mechanization
     PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # 7. Link Libraries (linking the Eigen3 interface library)

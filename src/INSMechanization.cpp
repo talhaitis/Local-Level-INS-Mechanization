@@ -19,6 +19,7 @@ void INSMechanization::setInitialState(double latitiude, double longitude, doubl
     initEulerAngles = eulerAngles;
 }
 
+
 bool INSMechanization::readIMUData(const std::string &filename)
 {
     std::ifstream file(filename, std::ios::binary);
@@ -36,6 +37,11 @@ bool INSMechanization::readIMUData(const std::string &filename)
     file.close();
     std::cout << "Read " << imuData.size() << " records from" << filename << " \n";
     return true;
+}
+
+// Getter for the raw IMU data
+std::vector<IMURecord>& INSMechanization::getIMUData() {
+    return imuData;
 }
 
 void INSMechanization::run()
