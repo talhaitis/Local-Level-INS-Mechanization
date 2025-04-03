@@ -23,12 +23,17 @@ public:
 
     // Set intial state: latitude (radians), longitude(radians), height(meters)
     // intitial velocity, and euler angle(roll, pitch, yaw) in radians
-    void setInitialState(double latitude, double longitude, double height,
+    void setInitialState(double latitude, double longitude, double height, double normalGravity,
                          const Eigen::Vector3d &velocity,
                          const Eigen::Vector3d &eulerAngles);
 
     // Read the IMU data from a binary file
     bool readIMUData(const std::string &filename);
+    // Getter for the raw IMU data (modifiable reference)
+    std::vector<IMURecord>& getIMUData();
+
+    // Returns a pair: first is roll (rad), second is pitch (rad).
+    Eigen::Vector3d computeInitialAlignment(double alignmentWindow = 120.0) const;
 
     // Runs the INS mechanization processing (attitude, velocity and position updates)
     void run();
@@ -36,8 +41,7 @@ public:
     // Prints the results
     void printResulst() const;
 
-    // Getter for the raw IMU data (modifiable reference)
-    std::vector<IMURecord>& getIMUData();
+
 
 private:
     // Container for IMU data
@@ -47,27 +51,12 @@ private:
     double initLatitude;  // in radians
     double initLongitude; // in radians
     double initHeight;    // in meters
+    double normalGravity;
 
     Eigen::Vector3d initVelocity;
-    Eigen::Vector3d initEulerAngles;
-    
+    Eigen::Vector3d initEulerAngles;    
 
-    // -------------------------------------------------------------------------------------------------------------
-    // Constants (WGS84, gravity, etc.)
-    // -------------------------------------------------------------------------------------------------------------
 
-    // Earth parameters (WGS84)
-    static constexpr double semiMajorAxis = 6378137.0; // [m]
-    static constexpr double eccentricitySquared = 6.69438e-3;
-    static constexpr double earthRotationRate = 7.292115147e-5; // [rad/s]
-
-    // Gravity model coefficients
-    static constexpr double a1 = 9.7803267715;
-    static constexpr double a2 = 0.0052790414;
-    static constexpr double a3 = 0.0000232718;
-    static constexpr double a4 = -0.000003087691089;
-    static constexpr double a5 = 0.000000004397731;
-    static constexpr double a6 = 0.000000000000721;
 };
 
 #endif
