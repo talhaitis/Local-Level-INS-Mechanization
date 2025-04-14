@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <Eigen/Dense>
+#include "IMUCalibration.h"
 
 struct IMURecord
 {
@@ -33,7 +34,7 @@ public:
     std::vector<IMURecord>& getIMUData();
 
     // Returns a pair: first is roll (rad), second is pitch (rad).
-    Eigen::Vector3d computeInitialAlignment(double alignmentWindow = 120.0) const;
+    Eigen::Vector3d computeInitialAlignment(const IMUCalibration &calib, double alignmentWindow = 120.0) const;
 
     // Runs the INS mechanization processing (attitude, velocity and position updates)
     void run();
