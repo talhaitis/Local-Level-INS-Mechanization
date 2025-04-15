@@ -1,7 +1,6 @@
 #include <iostream>
 #include "INSMechanization.h"
 #include "Constants.h"       // For INIT_LAT_DEG, INIT_LONG_DEG, INIT_HEIGHT, DEG_TO_RAD, etc.
-#include "EarthModel.h"      // For computeNormalGravity, computeRadiusMeridian, computeRadiusPrimeVertical
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
@@ -24,24 +23,11 @@ int main()
 
     // Initial velocity and Euler angles are zero for a static test
     Eigen::Vector3d initVelocity(0.0, 0.0, 0.0);
-    Eigen::Vector3d initEulerAngles(0.0, 0.0, 0.0);
 
-        // ---------------------------------------------------------------------------
-    // Compute and print Earth model parameters
-    // ---------------------------------------------------------------------------
-    double normalGravity = computeNormalGravity(initLat_rad, initHeight);
-    double radiusMeridian = computeRadiusMeridian(initLat_rad);
-    double radiusPrimeVertical = computeRadiusPrimeVertical(initLat_rad);
 
-    std::cout << "Computed Normal Gravity at latitude " << initLat_rad 
-              << " and height " << initHeight << " is: " << normalGravity << " m/s²" << std::endl;
-    std::cout << "Radius of Curvature (Meridian) at latitude " << initLat_rad 
-              << " is: " << radiusMeridian << " m" << std::endl;
-    std::cout << "Radius of Curvature (Prime Vertical) at latitude " << initLat_rad 
-              << " is: " << radiusPrimeVertical << " m" << std::endl;
 
     // Set the initial state in the INS object
-    ins.setInitialState(initLat_rad, initLong_rad, initHeight, normalGravity, initVelocity, initEulerAngles);
+    ins.setInitialState(initLat_rad, initLong_rad, initHeight, initVelocity);
 
     // ---------------------------------------------------------------------------
     // Read the raw IMU binary data (no calibration applied yet)

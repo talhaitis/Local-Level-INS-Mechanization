@@ -1,26 +1,24 @@
 #include "INSMechanization.h"
-#include "Utilities.h"       // For conversion functions and CSV writing
+#include "Utilities.h" 
+#include "Constants.h"
+#include "EarthModel.h"      // For computeNormalGravity, computeRadiusMeridian, computeRadiusPrimeVertical
 #include <iostream>
 #include <fstream>
 
-INSMechanization::INSMechanization() : initLatitude(0.0), initLongitude(0.0), initHeight(0.0), normalGravity(9.8),
-                                       initVelocity(Eigen::Vector3d::Zero()), initEulerAngles(Eigen::Vector3d::Zero())
+INSMechanization::INSMechanization() : initLatitude(0.0), initLongitude(0.0), initHeight(0.0),
+                                       initVelocity(Eigen::Vector3d::Zero())
 {
     // Constructor initilization of the INS
 }
 
-void INSMechanization::setInitialState(double latitiude, double longitude, double height, double normalGravity,
-                                       const Eigen::Vector3d &velocity,
-                                       const Eigen::Vector3d &eulerAngles
-
+void INSMechanization::setInitialState(double latitiude, double longitude, double height,
+                                       const Eigen::Vector3d &velocity
 )
 {
     initLatitude = latitiude;
     initLongitude = longitude;
     initHeight = height;
-    this->normalGravity = normalGravity;
     initVelocity = velocity;
-    initEulerAngles = eulerAngles;
 }
 
 bool INSMechanization::readIMUData(const std::string &filename)
@@ -47,41 +45,45 @@ std::vector<IMURecord> &INSMechanization::getIMUData()
 {
     return imuData;
 }
-Eigen::Vector3d INSMechanization::computeInitialAlignment(const IMUCalibration &calib, double alignmentWindow) const
+Eigen::Vector3d INSMechanization::computeInitialAlignment(const IMUCalibration &calib,double normalGravity, double alignmentWindow) const
 {
-    if (imuData.empty()) {
+    if (imuData.empty())
+    {
         std::cerr << "No IMU data available for alignment." << std::endl;
         return Eigen::Vector3d::Zero();
     }
-    
+
     double sum_fx = 0.0, sum_fy = 0.0, sum_fz = 0.0;
     double sum_wx = 0.0, sum_wy = 0.0;
     int count = 0;
-    
-    for (const auto &record : imuData) {
-        if (record.time <= alignmentWindow) {
+
+    for (const auto &record : imuData)
+    {
+        if (record.time <= alignmentWindow)
+        {
             // Apply calibration corrections for each measurement:
             Eigen::Vector3d rawAccel(record.accel_x, record.accel_y, record.accel_z);
             Eigen::Vector3d rawGyro(record.gyro_x, record.gyro_y, record.gyro_z);
             Eigen::Vector3d correctedAccel = calib.correctAccelerometer(rawAccel);
-            Eigen::Vector3d correctedGyro  = calib.correctGyro(rawGyro);
-            
+            Eigen::Vector3d correctedGyro = calib.correctGyro(rawGyro);
+
             // Accumulate the corrected values:
             sum_fx += correctedAccel.x();
             sum_fy += correctedAccel.y();
             sum_fz += correctedAccel.z();
-            
+
             sum_wx += correctedGyro.x();
             sum_wy += correctedGyro.y();
             ++count;
         }
     }
-    
-    if (count == 0) {
+
+    if (count == 0)
+    {
         std::cerr << "No data in the specified alignment window." << std::endl;
         return Eigen::Vector3d::Zero();
     }
-    
+
     double avg_fx = sum_fx / count;
     double avg_fy = sum_fy / count;
     double avg_fz = sum_fz / count;
@@ -89,16 +91,99 @@ Eigen::Vector3d INSMechanization::computeInitialAlignment(const IMUCalibration &
     double avg_wx = sum_wx / count;
     double avg_wy = sum_wy / count;
     // We can ignore wz for the azimuth calculation as needed
-    
+
     // Compute roll and pitch using the calibrated accelerometer average:
     double sign_fz = (avg_fz >= 0.0) ? 1.0 : -1.0;
     double roll = -sign_fz * std::asin(avg_fy / normalGravity);
     double pitch = -sign_fz * std::asin(avg_fx / normalGravity);
-    
+
     // Compute azimuth from the calibrated gyro average:
     double azimuth = std::atan2(avg_wx, avg_wy);
-    
+
     return Eigen::Vector3d(roll, pitch, azimuth);
+}
+
+// Returns a 3x3 rotation matrix based on roll, pitch, and azimuth (in radians).
+Eigen::Matrix3d INSMechanization::computeRotationMatrix(double roll, double pitch, double azimuth)
+{
+    // For brevity, define sX = sin(X), cX = cos(X)
+    double sr = std::sin(roll);
+    double cr = std::cos(roll);
+    double sp = std::sin(pitch);
+    double cp = std::cos(pitch);
+    double sA = std::sin(azimuth);
+    double cA = std::cos(azimuth);
+
+    // |  cA * cp     +  sA * sp * sr    ,    sA * cp      -  cA * sp * sr   ,   sA * sp + cA * cp * sr  |
+    // | -cA * sp     +  sA * sr * cp    ,    cA * cp      +  sA * sp * sr   ,  -sA * cp + cA * sp * sr   |
+    // | -sr * cp     ,    -sr * sp      ,          cr * cp                         ...                 |
+    //
+
+    Eigen::Matrix3d R;
+    R(0, 0) = cA * cr + sA * sp * sr; // cosA cosr + sinA sinp sinr
+    R(0, 1) = sA * cp;                // sinA cosp
+    R(0, 2) = cA * sr - sA * sp * cr; // cosA sinr - sinA sinp cosr
+
+    R(1, 0) = -sA * cr + cA * sp * sr; // -sinA cosr + cosA sinp sinr
+    R(1, 1) = cA * cp;                 // cosA cosp
+    R(1, 2) = -sA * sr - cA * sp * cr; // -sinA sinr - cosA sinp cosr
+
+    R(2, 0) = -cp * sr; // -cos p sin r
+    R(2, 1) = sp;       // sinp
+    R(2, 2) = cp * cr;  // cosp cosr
+
+    return R;
+}
+
+std::array<double, 4> INSMechanization::matrixToQuaternionSimple(const Eigen::Matrix3d &R)
+{
+    // For convenience, name the matrix elements with 1-based notation as your doc might,
+    // but remember in code it's R(row, col) zero-based.
+    double r11 = R(0, 0);
+    double r12 = R(0, 1);
+    double r13 = R(0, 2);
+    double r21 = R(1, 0);
+    double r22 = R(1, 1);
+    double r23 = R(1, 2);
+    double r31 = R(2, 0);
+    double r32 = R(2, 1);
+    double r33 = R(2, 2);
+
+    double q4 = 0.5 * sqrt(1 + r11 + r22 + r33);
+    double q3 = (0.25 * (r21 - r12)) / q4;
+    double q2 = (0.25 * (r13 - r31)) / q4;
+    double q1 = (0.25 * (r32 - r23)) / q4;
+    double sum_q = pow(q1, 2) + pow(q2, 2) + pow(q3, 2) + pow(q4, 2);
+    double delta = 1 - sum_q;
+    printf("Sum q: %f\n", sum_q);
+    printf("delta: %f\n", delta);
+    return {q1, q2, q3, q4};
+}
+
+Eigen::Vector3d INSMechanization::computeTransportRate(Eigen::Vector3d velocity,
+                                                       double primeVertical,
+                                                       double meridian,
+                                                       double height,
+                                                       double latitude)
+{
+    // Extract north and east components from the velocity vector.
+    double Vn = velocity(0); // Northward velocity
+    double Ve = velocity(1); // Eastward velocity
+
+    // Earth's rotation rate (rad/s)
+    double omega_e = EARTH_ROTATION_RATE;
+
+    // Compute the local-level transport rate vector using the provided parameters.
+    // Note: Adjust these formulas if your convention differs (e.g., NED vs. ENU).
+    Eigen::Vector3d omega_local;
+    // North component:
+    omega_local(0) = -Vn / (meridian + height);
+    // East component:
+    omega_local(1) = Ve / (primeVertical + height) + omega_e * std::cos(latitude);
+    // Down component:
+    omega_local(2) = (Ve * std::tan(latitude)) / (primeVertical + height) + omega_e * std::sin(latitude);
+
+    return omega_local;
 }
 
 void INSMechanization::run()
@@ -108,46 +193,101 @@ void INSMechanization::run()
     std::cout << "Initial Longitude (rad): " << initLongitude << std::endl;
     std::cout << "Initial Height (m): " << initHeight << std::endl;
     std::cout << "Number of IMU records: " << imuData.size() << std::endl;
-    
+
     // --- Create and Configure a Calibration Object for the Alignment Window ---
     IMUCalibration calib;
-    // Example: Set calibration parameters (bias, scale, non-orthogonality) as determined in your static calibration phase.
-    double gyroBias_degHour = 0.1;
-    double accelBias_microG = 3;
+
+    // Example calibration values
+    double gyroBias_degHour = 0.1; // Gyro bias in deg/hr
+    double accelBias_microG = 3;   // Accelerometer bias in micro-g
+
+    // Convert bias values using functions from Utilities.h
     double gyroBias_radPerSec = gyroBiasDegHrToRadSec(gyroBias_degHour);
     double accelBias_mPerSec2 = accelBiasMicrogToMPerSec2(accelBias_microG);
-    
+
+    // Set accelerometer calibration parameters
     Eigen::Vector3d accelBias(accelBias_mPerSec2, accelBias_mPerSec2, accelBias_mPerSec2);
-    Eigen::Vector3d accelScale(1.0, 1.0, 1.0);
-    Eigen::Vector3d accelNonOrthogonality(0.0, 0.0, 0.0);
+    Eigen::Vector3d accelScale(1.0, 1.0, 1.0);            // Assume nominal scale factors
+    Eigen::Vector3d accelNonOrthogonality(0.0, 0.0, 0.0); // Assume ideal alignment
     calib.setAccelBias(accelBias);
     calib.setAccelScale(accelScale);
     calib.setAccelNonOrthogonality(accelNonOrthogonality);
-    
+
+    // Set gyroscope calibration parameters
     Eigen::Vector3d gyroBias(gyroBias_radPerSec, gyroBias_radPerSec, gyroBias_radPerSec);
     Eigen::Vector3d gyroScale(1.0, 1.0, 1.0);
     Eigen::Vector3d gyroNonOrthogonality(0.0, 0.0, 0.0);
     calib.setGyroBias(gyroBias);
     calib.setGyroScale(gyroScale);
     calib.setGyroNonOrthogonality(gyroNonOrthogonality);
+
+    // ---------------------------------------------------------------------------
+    // Compute and print Earth model parameters
+    // ---------------------------------------------------------------------------
     
-    // --- Compute the Initial Alignment using the calibrated values over the first 120 seconds ---
-    Eigen::Vector3d alignment = computeInitialAlignment(calib, 120.0);
-    double roll_deg  = alignment[0] * 180.0 / M_PI;
-    double pitch_deg = alignment[1] * 180.0 / M_PI;
-    double azimuth_deg = alignment[2] * 180.0 / M_PI;
-    
-    std::cout << "Initial Alignment (from first 120 sec of calibrated data):" << std::endl;
+    double normalGravity = computeNormalGravity(initLatitude, initHeight);
+    double radiusMeridian = computeRadiusMeridian(initLatitude);
+    double radiusPrimeVertical = computeRadiusPrimeVertical(initLatitude);
+
+    std::cout << "Computed Normal Gravity at latitude " << initLatitude 
+              << " and height " << initHeight << " is: " << normalGravity << " m/s²" << std::endl;
+    std::cout << "Radius of Curvature (Meridian) at latitude " << initLatitude 
+              << " is: " << radiusMeridian << " m" << std::endl;
+    std::cout << "Radius of Curvature (Prime Vertical) at latitude " << initLatitude 
+              << " is: " << radiusPrimeVertical << " m" << std::endl;
+
+
+    // --- Compute the Initial Alignment over the first 120 seconds ---
+    // This function applies the calibration to each measurement within the window,
+    // averages the calibrated values, and computes the roll, pitch, and azimuth.
+    double alignmentWindow = 120.0;
+    Eigen::Vector3d alignment = computeInitialAlignment(calib, normalGravity, alignmentWindow);
+    double roll_rad = alignment[0];
+    double pitch_rad = alignment[1];
+    double azimuth_rad = alignment[2];
+
+    // Convert the angles to degrees for readability.
+    double roll_deg = roll_rad * 180.0 / M_PI;
+    double pitch_deg = pitch_rad * 180.0 / M_PI;
+    double azimuth_deg = azimuth_rad * 180.0 / M_PI;
+
+    std::cout << "Initial Alignment (from first " << alignmentWindow << " sec of calibrated data):" << std::endl;
     std::cout << "  Roll: " << roll_deg << " deg" << std::endl;
     std::cout << "  Pitch: " << pitch_deg << " deg" << std::endl;
     std::cout << "  Azimuth: " << azimuth_deg << " deg" << std::endl;
-    
-    // Here you could add a loop to continuously update calibration and alignment per measurement.
-    // For now, this run() function demonstrates the initial alignment process.
-}
 
+    // --- Compute the Initial Rotation Matrix from the Alignment Angles ---
+    // Assume computeRotationMatrix is implemented (e.g., in a helper or EarthModel file)
+    Eigen::Matrix3d R = computeRotationMatrix(roll_rad, pitch_rad, azimuth_rad);
+    std::cout << "Initial Rotation Matrix R^b_l:" << std::endl;
+    std::cout << R << std::endl;
+    std::array<double, 4> q = matrixToQuaternionSimple(R);
+
+    // q[0], q[1], q[2], q[3] correspond to (q0, q1, q2, q3) from your doc
+    std::cout << "Quaternion:\n";
+    std::cout << " q0 = " << q[0] << "\n"
+              << " q1 = " << q[1] << "\n"
+              << " q2 = " << q[2] << "\n"
+              << " q3 = " << q[3] << "\n";
+
+    Eigen::Vector3d transportRate = computeTransportRate(initVelocity, radiusPrimeVertical, radiusMeridian, initHeight, initLatitude);
+
+    std::cout << "Transport Rate:" << std::endl;
+    std::cout << "  North: " << transportRate(0) << " rad/s" << std::endl;
+    std::cout << "  East: "  << transportRate(1) << " rad/s" << std::endl;
+    std::cout << "  Down: "  << transportRate(2) << " rad/s" << std::endl;
+
+    Eigen::Vector3d transportRate_b = R.transpose() * transportRate;
+
+
+    std::cout << "Transport Rate in bodyframe:" << std::endl;
+    std::cout << "  North: " << transportRate_b(0) << " rad/s" << std::endl;
+    std::cout << "  East: "  << transportRate_b(1) << " rad/s" << std::endl;
+    std::cout << "  Down: "  << transportRate_b(2) << " rad/s" << std::endl;
+
+        
+}
 
 void INSMechanization::printResulst() const
 {
 }
-
