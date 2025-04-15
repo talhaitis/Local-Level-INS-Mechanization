@@ -1,7 +1,7 @@
 #include "INSMechanization.h"
-#include "Utilities.h" 
+#include "Utilities.h"
 #include "Constants.h"
-#include "EarthModel.h"      // For computeNormalGravity, computeRadiusMeridian, computeRadiusPrimeVertical
+#include "EarthModel.h" // For computeNormalGravity, computeRadiusMeridian, computeRadiusPrimeVertical
 #include <iostream>
 #include <fstream>
 
@@ -12,8 +12,7 @@ INSMechanization::INSMechanization() : initLatitude(0.0), initLongitude(0.0), in
 }
 
 void INSMechanization::setInitialState(double latitiude, double longitude, double height,
-                                       const Eigen::Vector3d &velocity
-)
+                                       const Eigen::Vector3d &velocity)
 {
     initLatitude = latitiude;
     initLongitude = longitude;
@@ -45,7 +44,7 @@ std::vector<IMURecord> &INSMechanization::getIMUData()
 {
     return imuData;
 }
-Eigen::Vector3d INSMechanization::computeInitialAlignment(const IMUCalibration &calib,double normalGravity, double alignmentWindow) const
+Eigen::Vector3d INSMechanization::computeInitialAlignment(const IMUCalibration &calib, double normalGravity, double alignmentWindow) const
 {
     if (imuData.empty())
     {
@@ -135,7 +134,7 @@ Eigen::Matrix3d INSMechanization::computeRotationMatrix(double roll, double pitc
     return R;
 }
 
-std::array<double, 4> INSMechanization::matrixToQuaternionSimple(const Eigen::Matrix3d &R)
+Eigen::Vector4d INSMechanization::matrixToQuaternionSimple(const Eigen::Matrix3d &R)
 {
     // For convenience, name the matrix elements with 1-based notation as your doc might,
     // but remember in code it's R(row, col) zero-based.
@@ -157,7 +156,12 @@ std::array<double, 4> INSMechanization::matrixToQuaternionSimple(const Eigen::Ma
     double delta = 1 - sum_q;
     printf("Sum q: %f\n", sum_q);
     printf("delta: %f\n", delta);
-    return {q1, q2, q3, q4};
+    Eigen::Vector4d q;
+    // Here we choose to return [q1, q2, q3, q0].
+    // Adjust the ordering if your document expects a different convention.
+    q << q1, q2, q3, q4;
+
+    return q;
 }
 
 Eigen::Vector3d INSMechanization::computeTransportRate(Eigen::Vector3d velocity,
@@ -185,6 +189,47 @@ Eigen::Vector3d INSMechanization::computeTransportRate(Eigen::Vector3d velocity,
 
     return omega_local;
 }
+
+Eigen::Matrix3d INSMechanization::quaternionToRotationMatrix(Eigen::Vector4d q){
+    Eigen::Matrix3d R;
+    R (0 , 0) = pow(q(0), 2) - pow(q(1), 2) - pow(q(2), 2) - pow(q(3), 2);
+}
+
+Eigen::Vector4d INSMechanization::updateQuaternion(const Eigen::Vector4d &q_old, const Eigen::Vector3d &angularVelocity)
+{
+    Eigen::Matrix4d M = Eigen::Matrix4d::Zero();
+
+    M(0, 1) = angularVelocity(2);
+    M(0, 2) = -angularVelocity(1);
+    M(0, 3) = angularVelocity(0);
+
+    M(1, 0) = -angularVelocity(1);
+    M(1, 2) = angularVelocity(0);
+    M(1, 3) = angularVelocity(1);
+
+    M(2, 0) = angularVelocity(1);
+    M(2, 1) = -angularVelocity(0);
+    M(2, 3) = angularVelocity(2);
+
+    M(3, 0) = -angularVelocity(0);
+    M(3, 1) = -angularVelocity(1);
+    M(3, 2) = -angularVelocity(2);
+
+    Eigen::Vector4d q = q_old + 0.5 * M * q_old;
+    // check if q equals 1 
+    double sum_q = pow(q(0), 2) + pow(q(1), 2) + pow(q(2), 2) + pow(q(3), 2);
+    if(sum_q != 1){
+        double delta = 1 - sum_q;
+        // q = (q /sqrt(1 - delta));
+        q(0) = q(0) / sqrt(1 - delta);
+        q(1) = q(1) / sqrt(1 - delta);
+        q(2) = q(2) / sqrt(1 - delta);
+        q(3) = q(3) / sqrt(1 - delta);
+    }
+    return q;
+}
+
+
 
 void INSMechanization::run()
 {
@@ -224,18 +269,17 @@ void INSMechanization::run()
     // ---------------------------------------------------------------------------
     // Compute and print Earth model parameters
     // ---------------------------------------------------------------------------
-    
+
     double normalGravity = computeNormalGravity(initLatitude, initHeight);
     double radiusMeridian = computeRadiusMeridian(initLatitude);
     double radiusPrimeVertical = computeRadiusPrimeVertical(initLatitude);
 
-    std::cout << "Computed Normal Gravity at latitude " << initLatitude 
+    std::cout << "Computed Normal Gravity at latitude " << initLatitude
               << " and height " << initHeight << " is: " << normalGravity << " m/s²" << std::endl;
-    std::cout << "Radius of Curvature (Meridian) at latitude " << initLatitude 
+    std::cout << "Radius of Curvature (Meridian) at latitude " << initLatitude
               << " is: " << radiusMeridian << " m" << std::endl;
-    std::cout << "Radius of Curvature (Prime Vertical) at latitude " << initLatitude 
+    std::cout << "Radius of Curvature (Prime Vertical) at latitude " << initLatitude
               << " is: " << radiusPrimeVertical << " m" << std::endl;
-
 
     // --- Compute the Initial Alignment over the first 120 seconds ---
     // This function applies the calibration to each measurement within the window,
@@ -261,31 +305,45 @@ void INSMechanization::run()
     Eigen::Matrix3d R = computeRotationMatrix(roll_rad, pitch_rad, azimuth_rad);
     std::cout << "Initial Rotation Matrix R^b_l:" << std::endl;
     std::cout << R << std::endl;
-    std::array<double, 4> q = matrixToQuaternionSimple(R);
+    Eigen::Vector4d q = matrixToQuaternionSimple(R);
 
     // q[0], q[1], q[2], q[3] correspond to (q0, q1, q2, q3) from your doc
-    std::cout << "Quaternion:\n";
-    std::cout << " q0 = " << q[0] << "\n"
-              << " q1 = " << q[1] << "\n"
-              << " q2 = " << q[2] << "\n"
-              << " q3 = " << q[3] << "\n";
+    std::cout << "Quaternion: " << q.transpose() << std::endl;
 
     Eigen::Vector3d transportRate = computeTransportRate(initVelocity, radiusPrimeVertical, radiusMeridian, initHeight, initLatitude);
 
     std::cout << "Transport Rate:" << std::endl;
     std::cout << "  North: " << transportRate(0) << " rad/s" << std::endl;
-    std::cout << "  East: "  << transportRate(1) << " rad/s" << std::endl;
-    std::cout << "  Down: "  << transportRate(2) << " rad/s" << std::endl;
+    std::cout << "  East: " << transportRate(1) << " rad/s" << std::endl;
+    std::cout << "  Down: " << transportRate(2) << " rad/s" << std::endl;
 
     Eigen::Vector3d transportRate_b = R.transpose() * transportRate;
 
-
     std::cout << "Transport Rate in bodyframe:" << std::endl;
     std::cout << "  North: " << transportRate_b(0) << " rad/s" << std::endl;
-    std::cout << "  East: "  << transportRate_b(1) << " rad/s" << std::endl;
-    std::cout << "  Down: "  << transportRate_b(2) << " rad/s" << std::endl;
+    std::cout << "  East: " << transportRate_b(1) << " rad/s" << std::endl;
+    std::cout << "  Down: " << transportRate_b(2) << " rad/s" << std::endl;
 
-        
+    double delta_t = 1.0 / 64.0;
+    for (auto &record : imuData)
+    {
+        // If the data time is beyond the alignment window, we can do the compensation here
+        if (record.time > alignmentWindow)
+        {
+            Eigen::Vector3d rawGyro(record.gyro_x, record.gyro_y, record.gyro_z);
+            Eigen::Vector3d correctedGyro = calib.correctGyro(rawGyro);
+
+            // Eigen::Vector3d transportIncrement = transportRate_b * delta_t;
+
+            Eigen::Vector3d transportIncrement = transportRate_b * delta_t;
+            Eigen::Vector3d compensaedAngularVelocity = correctedGyro - transportIncrement;
+            q = updateQuaternion(q, compensaedAngularVelocity);
+            if (record.time < alignmentWindow + 1.0)
+            {
+                std::cout << "Time: " << record.time << " s, Updated Quaternion: " << q.transpose() << std::endl;
+            }
+        }
+    }
 }
 
 void INSMechanization::printResulst() const

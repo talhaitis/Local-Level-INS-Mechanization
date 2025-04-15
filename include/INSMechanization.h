@@ -35,9 +35,10 @@ public:
     // Returns a pair: first is roll (rad), second is pitch (rad).
     Eigen::Vector3d computeInitialAlignment(const IMUCalibration &calib, double normalGravity, double alignmentWindow = 120.0) const;
     Eigen::Matrix3d computeRotationMatrix(double roll, double pitch, double azimuth);
-    std::array<double, 4> matrixToQuaternionSimple(const Eigen::Matrix3d &R);
-    Eigen::Matrix3d quaternionToRotationMatrix(std::array<double, 4> q);
+    Eigen::Vector4d matrixToQuaternionSimple(const Eigen::Matrix3d &R);
+    Eigen::Matrix3d quaternionToRotationMatrix(Eigen::Vector4d q);
     Eigen::Vector3d computeTransportRate(Eigen::Vector3d velocity, double primeVertical, double meridian, double height, double latitude);
+    Eigen::Vector4d updateQuaternion(const Eigen::Vector4d &q_old, const Eigen::Vector3d &angularVelocity);
 
     void run();
 
