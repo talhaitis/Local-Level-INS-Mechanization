@@ -24,7 +24,7 @@ public:
 
     // Set intial state: latitude (radians), longitude(radians), height(meters)
     // intitial velocity, and euler angle(roll, pitch, yaw) in radians
-    void setInitialState(double latitude, double longitude, double height, 
+    void setInitialState(double latitude, double longitude, double height,
                          const Eigen::Vector3d &velocity);
 
     // Read the IMU data from a binary file
@@ -33,12 +33,16 @@ public:
     std::vector<IMURecord> &getIMUData();
 
     // Returns a pair: first is roll (rad), second is pitch (rad).
-    Eigen::Vector3d computeInitialAlignment(const IMUCalibration &calib, double normalGravity, double alignmentWindow = 120.0) const;
+    Eigen::Vector3d computeInitialAlignment(
+        const IMUCalibration &calib,
+        double normalGravity,
+        size_t alignmentSamples // <- now an integer sample count
+    ) const;
     Eigen::Matrix3d computeRotationMatrix(double roll, double pitch, double azimuth);
     Eigen::Vector4d matrixToQuaternionSimple(const Eigen::Matrix3d &R);
     Eigen::Matrix3d quaternionToRotationMatrix(Eigen::Vector4d q);
     Eigen::Vector3d computeTransportRate(Eigen::Vector3d velocity, double primeVertical, double meridian, double height, double latitude);
-    Eigen::Vector4d updateQuaternion(const Eigen::Vector4d &q_old, const Eigen::Vector3d &angularVelocity);
+    Eigen::Vector4d updateQuaternion(const Eigen::Vector4d q_old, const Eigen::Vector3d &angularVelocity);
 
     void run();
 

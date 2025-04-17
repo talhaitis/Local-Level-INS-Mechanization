@@ -51,46 +51,93 @@
 
 # plt.show()
 
+# import os
+# import pandas as pd
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+# # Get the directory of the current script
+# script_dir = os.path.dirname(os.path.realpath(__file__))
+
+# # Load only the first 120 seconds of data
+# csv_path = os.path.join(script_dir, "..", "results", "raw_data.csv")
+# data = pd.read_csv(csv_path)
+
+# # Filter data for the first two minutes (120 seconds)
+# data = data[data['time'] <= 120]
+
+# # Compute acceleration magnitude
+# data['accel_mag'] = np.sqrt(data['accel_x']**2 + data['accel_y']**2 + data['accel_z']**2)
+
+# # Calculate statistics
+# mean_mag = data['accel_mag'].mean()
+# std_mag = data['accel_mag'].std()
+
+# print(f"[First 2 Minutes] Acceleration Magnitude Mean: {mean_mag:.4f} m/s²")
+# print(f"[First 2 Minutes] Acceleration Magnitude Std Dev: {std_mag:.4f} m/s²")
+
+# # Stationarity decision (adjust threshold if needed)
+# threshold = 0.05
+# if std_mag < threshold:
+#     print("The IMU data appears to be stationary.")
+# else:
+#     print("The IMU data appears to be dynamic.")
+
+# # Plot
+# plt.figure(figsize=(10, 6))
+# plt.plot(data['time'], data['accel_mag'], color='darkorange', label='Accel Magnitude')
+# plt.xlabel('Time (s)')
+# plt.ylabel('Acceleration Magnitude (m/s²)')
+# plt.title('Acceleration Magnitude (First 2 Minutes)')
+# plt.grid(True)
+# plt.legend()
+
+
+# plt.show()
+
 import os
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 
-# Get the directory of the current script
+# --- Load Data ---
 script_dir = os.path.dirname(os.path.realpath(__file__))
+csv_path = os.path.join(script_dir, "..", "results", "position_output.csv")
 
-# Load only the first 120 seconds of data
-csv_path = os.path.join(script_dir, "..", "results", "raw_data.csv")
-data = pd.read_csv(csv_path)
+df = pd.read_csv(csv_path)
 
-# Filter data for the first two minutes (120 seconds)
-data = data[data['time'] <= 120]
-
-# Compute acceleration magnitude
-data['accel_mag'] = np.sqrt(data['accel_x']**2 + data['accel_y']**2 + data['accel_z']**2)
-
-# Calculate statistics
-mean_mag = data['accel_mag'].mean()
-std_mag = data['accel_mag'].std()
-
-print(f"[First 2 Minutes] Acceleration Magnitude Mean: {mean_mag:.4f} m/s²")
-print(f"[First 2 Minutes] Acceleration Magnitude Std Dev: {std_mag:.4f} m/s²")
-
-# Stationarity decision (adjust threshold if needed)
-threshold = 0.05
-if std_mag < threshold:
-    print("The IMU data appears to be stationary.")
-else:
-    print("The IMU data appears to be dynamic.")
-
-# Plot
-plt.figure(figsize=(10, 6))
-plt.plot(data['time'], data['accel_mag'], color='darkorange', label='Accel Magnitude')
-plt.xlabel('Time (s)')
-plt.ylabel('Acceleration Magnitude (m/s²)')
-plt.title('Acceleration Magnitude (First 2 Minutes)')
+# --- Plot Latitude vs Time ---
+plt.figure(figsize=(10, 5))
+plt.plot(df["time"], df["latitude_deg"], color='blue', marker='o', linestyle='-')
+plt.xlabel("Time (s)")
+plt.ylabel("Latitude (°)")
+plt.title("Latitude Over Time")
 plt.grid(True)
-plt.legend()
+plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=False))  # Disable scientific notation
+plt.tight_layout()
+plt.savefig(os.path.join(script_dir, "..", "results", "latitude_over_time.png"))
+plt.show()
 
+# --- Plot Longitude vs Time ---
+plt.figure(figsize=(10, 5))
+plt.plot(df["time"], df["longitude_deg"], color='green', marker='x', linestyle='--')
+plt.xlabel("Time (s)")
+plt.ylabel("Longitude (°)")
+plt.title("Longitude Over Time")
+plt.grid(True)
+plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=False))  # Disable scientific notation
+plt.tight_layout()
+plt.savefig(os.path.join(script_dir, "..", "results", "longitude_over_time.png"))
+plt.show()
 
+# --- Plot Height vs Time ---
+plt.figure(figsize=(10, 5))
+plt.plot(df["time"], df["height_m"], color='teal', marker='s', linestyle='-.')
+plt.xlabel("Time (s)")
+plt.ylabel("Height (m)")
+plt.title("Altitude Over Time")
+plt.grid(True)
+plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=False))  # Disable scientific notation
+plt.tight_layout()
+plt.savefig(os.path.join(script_dir, "..", "results", "altitude_over_time.png"))
 plt.show()
